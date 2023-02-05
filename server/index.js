@@ -24,13 +24,13 @@ app.use(bodyParser.urlencoded({ extended: true }))
 
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body
-    const findUser = users.find((user) => user.username === username && user.password === password)
-    if (findUser) {
+    const user = users.find((u) => u.username === username && u.password === password)
+    if (user) {
         //Generate an access token
-        const accessToken = jwt.sign({ id: findUser.id, isAdmin: findUser.isAdmin }, 'dontSayAnyone')
+        const accessToken = jwt.sign({ id: user.id, isAdmin: user.isAdmin }, 'mySecretKey')
         res.json({
-            username: findUser.username,
-            isAdmin: findUser.isAdmin,
+            username: user.username,
+            isAdmin: user.isAdmin,
             accessToken
         })
     } else {
@@ -39,19 +39,28 @@ app.post('/api/login', (req, res) => {
 })
 
 const verify = (req, res, next) => {
-    const authHeader = req.headers.authorization
+    const authHeader = req.headers.authorization;
     if (authHeader) {
-        const token = authHeader.split(' ')[1]
-        jwt.verify(token, 'dontSayAnyone', (err, user) => {
+        const token = authHeader.split(" ")[1]; 
+        jwt.verify(token, 'mySecretKey', (err, user) => {
             if (err) {
                 return res.status(403).json('Token is not valid!')
             }
             req.user = user
+            next()
         })
     } else {
         res.status(401).json('You are not authenticated!')
     }
 }
 
+app.delete("/api/users/:userId", verify, (req, res) => {
+    if (req.user.id === req.params.userId || req.user.isAdmin) {
+      res.status(200).json("User has been deleted.");
+    } else {
+      res.status(403).json("You are not allowed to delete this user!");
+    }
+  });
+
 const PORT = 8000
-app.listen(PORT, () => console.log(`Server running port: http://localhost:${PORT}`.blue.bold))
+app.listen(PORT, () => console.log(`Server running port: http://localhost:${PORT}`.blue.bold)) 
