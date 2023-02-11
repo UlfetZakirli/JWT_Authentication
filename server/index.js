@@ -1,6 +1,7 @@
 const express = require('express')
-require('colors')
+const bodyParser = require('body-parser')
 const jwt = require('jsonwebtoken')
+require('colors')
 
 let users = [
     {
@@ -12,49 +13,47 @@ let users = [
     {
         id: '2',
         username: 'aynure',
-        password: 'Aynure2000',
+        password: 'Aynure2001',
         isAdmin: false
     }
 ]
 
 const app = express()
-app.use(express.json())
-app.use(express.urlencoded({ extended: true }))
 
-
-app.get('/api/users', (req, res) => res.json(users))
+app.use(bodyParser.json())
+app.use(bodyParser.urlencoded({ extended: true }))
 
 
 let refreshTokens = []
 
-app.post('/api/refersh', (req, res) => {
-    const refershToken = req.body.token
-    if (!refershToken) return res.status(401).json('You are not authenticated!')
-    if (!refreshTokens.includes(refershToken)) {
-        return res.status(403).json('Refresh token is not valid')
+app.post('/api/refresh', (req, res) => {
+    const refreshToken = req.body.token
+    if (!refreshToken) {
+        return res.status(401).json('You are not authenticated!')
     }
-    jwt.verify(refershToken, "myRefreshSecretKey", (err, user) => {
+    if (!refreshTokens.includes(refreshToken)) {
+        return res.status(403).json('Refresh token is invalid!')
+    }
+    jwt.verify(refreshToken, 'myRefreshSecretKey', (err, user) => {
         err && console.log(err);
-        refreshTokens.filter(token => token !== refershToken)
-
+        refreshTokens = refreshTokens.filter(token => token !== refreshToken)
         const newAccessToken = generateAccessToken(user)
         const newRefreshToken = generateRefreshToken(user)
-
         refreshTokens.push(newRefreshToken)
-
         res.status(200).json({
             accessToken: newAccessToken,
-            refershToken: newRefreshToken
+            refreshToken: newRefreshToken
         })
     })
 
 })
 
+
 const generateAccessToken = (user) => {
     return jwt.sign(
         { id: user.id, isAdmin: user.isAdmin },
         'mySecretKey',
-        { expiresIn: '20s' }
+        { expiresIn: '1m' }
     )
 }
 
@@ -67,32 +66,31 @@ const generateRefreshToken = (user) => {
 
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body
-    const user = users.find((user) => user.username === username && user.password === password)
-    if (user) {
-        //Generate an access token
-        const accessToken = generateAccessToken(user)
-        const refreshToken = generateRefreshToken(user)
-        refreshTokens.push(refreshToken)
+    const currentUser = users.find((user) => username === user.username && password === user.password)
+    //Generate an access token
+    const accessToken = generateAccessToken(currentUser)
+    const refreshToken = generateRefreshToken(currentUser)
+    refreshTokens.push(refreshToken)
 
+    if (currentUser) {
         res.json({
-            username: user.username,
-            password: user.password,
+            username: currentUser.username,
+            isAdmin: currentUser.isAdmin,
             accessToken,
             refreshToken
-
         })
     } else {
-        res.status(400).json('Username or password incorrect!')
+        res.status(400).json('Username or password invalid!')
     }
 })
 
 const verify = (req, res, next) => {
     const authHeader = req.headers.authorization
     if (authHeader) {
-        const token = authHeader.split(" ")[1]
+        const token = authHeader.split(' ')[1]
         jwt.verify(token, 'mySecretKey', (err, user) => {
             if (err) {
-                return res.status(403).json('Token is not valid!')
+                return res.status(403).json('Token is invalid!')
             }
             req.user = user
             next()
@@ -103,12 +101,23 @@ const verify = (req, res, next) => {
 }
 
 app.delete('/api/users/:userId', verify, (req, res) => {
-    if (req.user.id === req.params.userId || req.user.isAdmin) {
+    const { userId } = req.params
+    if (req.user.id === userId || req.user.isAdmin) {
         res.status(200).json('User has been deleted!')
     } else {
         res.status(403).json('You are not allowed to delete this user!')
     }
+
 })
 
-const PORT = 7000
+app.post('/api/logout', verify, (req, res) => {
+    const refreshToken = req.body.token
+    refreshTokens = refreshTokens.filter((token) => token !== refreshToken)
+    res.status(200).json('You logged out successfully!')
+
+})
+
+
+
+const PORT = 8000
 app.listen(PORT, () => console.log(`Server running port: http://localhost:${PORT}`.blue.bold))
