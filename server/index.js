@@ -1,7 +1,14 @@
 const express = require('express')
-const bodyParser = require('body-parser')
-const jwt = require('jsonwebtoken')
 require('colors')
+const jwt = require('jsonwebtoken')
+const cors = require('cors')
+
+
+const app = express()
+app.use(express.json())
+app.use(express.urlencoded({ extended: true }))
+app.use(cors())
+
 
 let users = [
     {
@@ -18,69 +25,67 @@ let users = [
     }
 ]
 
-const app = express()
-
-app.use(bodyParser.json())
-app.use(bodyParser.urlencoded({ extended: true }))
-
-
 let refreshTokens = []
+
+const generateAccessToke = (user) => {
+    return jwt.sign(
+        { id: user.id, isAdmin: user.isAdmin },
+        'AccessKey',
+        { expiresIn: '20s' }
+    )
+}
+
+const genrateRefreshToken = (user) => {
+    return jwt.sign(
+        { id: user.id, isAdmin: user.isAdmin },
+        'RefreshKey',
+    )
+}
 
 app.post('/api/refresh', (req, res) => {
     const refreshToken = req.body.token
+
     if (!refreshToken) {
         return res.status(401).json('You are not authenticated!')
     }
     if (!refreshTokens.includes(refreshToken)) {
-        return res.status(403).json('Refresh token is invalid!')
+        return res.status(403).json('Token is invalid!')
     }
-    jwt.verify(refreshToken, 'myRefreshSecretKey', (err, user) => {
-        err && console.log(err);
-        refreshTokens = refreshTokens.filter(token => token !== refreshToken)
-        const newAccessToken = generateAccessToken(user)
-        const newRefreshToken = generateRefreshToken(user)
+    jwt.verify(refreshToken, 'RefreshKey', (err, user) => {
+        err && console.log(err)
+        refreshTokens = refreshTokens.filter((token) => token !== refreshToken)
+        const newAccessToken = generateAccessToke(user)
+        const newRefreshToken = genrateRefreshToken(user)
         refreshTokens.push(newRefreshToken)
+
         res.status(200).json({
             accessToken: newAccessToken,
             refreshToken: newRefreshToken
         })
-    })
 
+    })
 })
 
 
-const generateAccessToken = (user) => {
-    return jwt.sign(
-        { id: user.id, isAdmin: user.isAdmin },
-        'mySecretKey',
-        { expiresIn: '1m' }
-    )
-}
-
-const generateRefreshToken = (user) => {
-    return jwt.sign(
-        { id: user.id, isAdmin: user.isAdmin },
-        'myRefreshSecretKey'
-    )
-}
 
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body
-    const currentUser = users.find((user) => username === user.username && password === user.password)
+    const user = users.find((user) => user.username === username && user.password === password)
     //Generate an access token
-    const accessToken = generateAccessToken(currentUser)
-    const refreshToken = generateRefreshToken(currentUser)
+    const accessToken = generateAccessToke(user)
+    const refreshToken = genrateRefreshToken(user)
     refreshTokens.push(refreshToken)
 
-    if (currentUser) {
+    if (user) {
         res.json({
-            username: currentUser.username,
-            isAdmin: currentUser.isAdmin,
+            username: user.username,
+            isAdmin: user.isAdmin,
             accessToken,
             refreshToken
+
         })
     } else {
-        res.status(400).json('Username or password invalid!')
+        res.status(400).json('Username or password inlvalid!')
     }
 })
 
@@ -88,9 +93,9 @@ const verify = (req, res, next) => {
     const authHeader = req.headers.authorization
     if (authHeader) {
         const token = authHeader.split(' ')[1]
-        jwt.verify(token, 'mySecretKey', (err, user) => {
+        jwt.verify(token, 'AccessKey', (err, user) => {
             if (err) {
-                return res.status(403).json('Token is invalid!')
+                return res.status(401).json('Token is invalid!')
             }
             req.user = user
             next()
@@ -107,16 +112,14 @@ app.delete('/api/users/:userId', verify, (req, res) => {
     } else {
         res.status(403).json('You are not allowed to delete this user!')
     }
-
 })
 
-app.post('/api/logout', verify, (req, res) => {
+
+app.post('/api/logout', (req, res) => {
     const refreshToken = req.body.token
     refreshTokens = refreshTokens.filter((token) => token !== refreshToken)
     res.status(200).json('You logged out successfully!')
-
 })
-
 
 
 const PORT = 8000
