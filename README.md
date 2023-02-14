@@ -1,8 +1,21 @@
 # JWT_Authentication
 
+### Used Technologies
+* Node.js
+* Express.js
+* JWT (JSON Web Token), accessToken/refreshToken
+* Vite.js
+* Axios (axios.interceptors, axios instance)
+
+<img width="489" alt="first" src="https://user-images.githubusercontent.com/88549805/218738033-fae857f7-2eab-4d44-8c00-99ddb6d46ab1.png">   
+
+<img width="885" alt="second" src="https://user-images.githubusercontent.com/88549805/218738055-b1ef119d-7328-4751-aec3-9049595d6651.png">
+
+
+
 ### ***What is JSON Web Token?***
 
-JSON Web Token (JWT) is an open standard (RFC 7519) that defines a compact and self-contained way for securely transmitting information between parties as a JSON object. This information can be verified and trusted because it is digitally signed. JWTs can be signed using a secret (with the HMAC algorithm) or a public/private key pair using RSA or ECDSA.
+JSON Web Token (JWT) is an open standard (RFC 7519) that defines a compact and self-contained way for securely transmitting information between parties as a JSON object. This information can be verified and trusted because it is digitally signed. JWTs can be signed using a secret (with the HMAC algorithm) or a public/private key pair using RSA or ECDSA.   
 
 
 ### ***When should you use JSON Web Tokens?***
